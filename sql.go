@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"time"
 )
 
@@ -81,10 +82,10 @@ func (c *connection) PrepareContext(ctx context.Context, query string) (driver.S
 	}
 
 	if err != nil {
-		record.Err = err
-		record.Ts = time.Since(record.At)
-		record.Preparing = true
 		if c.log != nil {
+			record.Err = err
+			record.Ts = time.Since(record.At)
+			record.Preparing = true
 			c.log.Log(ctx, record)
 		}
 		return st, err
@@ -101,11 +102,11 @@ type stmt struct {
 // QueryContext implements driver.StmtQueryContext
 func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
 	defer func() {
-		s.record.Effect = false
-		s.record.Args = args
-		s.record.Ts = time.Since(s.record.At)
-		s.record.Err = err
 		if s.log != nil {
+			s.record.Effect = false
+			s.record.Args = args
+			s.record.Ts = time.Since(s.record.At)
+			s.record.Err = err
 			s.log.Log(ctx, s.record)
 		}
 	}()
@@ -113,30 +114,41 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows
 	if v, ok := s.Stmt.(driver.StmtQueryContext); ok {
 		return v.QueryContext(ctx, args)
 	}
-	args2 := make([]driver.Value, len(args))
-	for i, nv := range args {
-		args2[i] = nv.Value
+	values, err := namedValueToValue(args)
+	if err != nil {
+		return nil, err
 	}
-	return s.Stmt.Query(args2)
+	return s.Stmt.Query(values)
 }
 
 // ExecContext implements driver.StmtExecContext
 func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (result driver.Result, err error) {
 	defer func() {
-		s.record.Effect = true
-		s.record.Args = args
-		s.record.Ts = time.Since(s.record.At)
-		s.record.Err = err
 		if s.log != nil {
+			s.record.Effect = true
+			s.record.Args = args
+			s.record.Ts = time.Since(s.record.At)
+			s.record.Err = err
 			s.log.Log(ctx, s.record)
 		}
 	}()
 	if v, ok := s.Stmt.(driver.StmtExecContext); ok {
 		return v.ExecContext(ctx, args)
 	}
-	args2 := make([]driver.Value, len(args))
-	for i, nv := range args {
-		args2[i] = nv.Value
+	values, err := namedValueToValue(args)
+	if err != nil {
+		return nil, err
 	}
-	return s.Stmt.Exec(args2)
+	return s.Stmt.Exec(values)
+}
+
+func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {
+	dargs := make([]driver.Value, len(named))
+	for n, param := range named {
+		if len(param.Name) > 0 {
+			return nil, errors.New("sql: driver does not support the use of Named Parameters")
+		}
+		dargs[n] = param.Value
+	}
+	return dargs, nil
 }
