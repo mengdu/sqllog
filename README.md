@@ -19,7 +19,10 @@ import (
 	"github.com/mengdu/sqllog"
 )
 
-func sqlLog(ctx context.Context, log sqllog.Record) {
+// implements sqllog.Logger
+type SqlLog struct{}
+
+func (l SqlLog) Log(ctx context.Context, log sqllog.Record) {
 	args := []any{}
 	for _, arg := range log.Args {
 		args = append(args, arg.Value)
@@ -34,7 +37,7 @@ func sqlLog(ctx context.Context, log sqllog.Record) {
 func main() {
   dsn := "root:123456@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
 	// db, err := sql.Open("mysql", dsn)
-	db, err := sqllog.Open("mysql", dsn, sqlLog)
+	db, err := sqllog.Open("mysql", dsn, SqlLog{})
 	if err != nil {
 		panic(err)
 	}
@@ -51,5 +54,5 @@ func main() {
 **Output**
 
 ```log
-[db:2025-04-11T10:26:14.356+08:00] select ?, ?, ?, ?, ?, ?, ? [7/8]any[123, 3.14, true, nil.(<invalid>), "abc", 97, [3/3]uint8[97, 98, 99]] 1.463517ms false 
+[db:2025-04-11T15:15:39.539+08:00] select ?, ?, ?, ?, ?, ?, ? [7/8]any[123, 3.14, true, nil.(<invalid>), "abc", 97, [3/3]uint8[97, 98, 99]] 965.911µs false
 ```

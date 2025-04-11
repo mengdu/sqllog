@@ -10,7 +10,10 @@ import (
 	"github.com/mengdu/sqllog"
 )
 
-func sqlLog(ctx context.Context, log sqllog.Record) {
+// implements sqllog.Logger
+type SqlLog struct{}
+
+func (l SqlLog) Log(ctx context.Context, log sqllog.Record) {
 	args := []any{}
 	for _, arg := range log.Args {
 		args = append(args, arg.Value)
@@ -25,7 +28,7 @@ func sqlLog(ctx context.Context, log sqllog.Record) {
 func main() {
 	dsn := "root:123456@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
 	// db, err := sql.Open("mysql", dsn)
-	db, err := sqllog.Open("mysql", dsn, sqlLog)
+	db, err := sqllog.Open("mysql", dsn, SqlLog{})
 	if err != nil {
 		panic(err)
 	}

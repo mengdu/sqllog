@@ -16,7 +16,9 @@ type Record struct {
 	At        time.Time           // start time
 	Ts        time.Duration       // duration of the query
 }
-type Logger func(ctx context.Context, log Record)
+type Logger interface {
+	Log(ctx context.Context, log Record)
+}
 
 func Open(driverName string, dataSourceName string, log Logger) (*sql.DB, error) {
 	db, err := sql.Open(driverName, dataSourceName)
@@ -56,6 +58,13 @@ type connection struct {
 	log Logger
 }
 
+// // CheckNamedValue implements driver.NamedValueChecker
+// func (c *connection) CheckNamedValue(n *driver.NamedValue) error {
+// 	fmt.Println("CheckNamedValue", n.Value)
+// 	fmt.Println(string(debug.Stack()))
+// 	return c.Conn.(driver.NamedValueChecker).CheckNamedValue(n)
+// }
+
 // PrepareContext implements driver.ConnPrepareContext
 func (c *connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	record := Record{
@@ -76,7 +85,7 @@ func (c *connection) PrepareContext(ctx context.Context, query string) (driver.S
 		record.Ts = time.Since(record.At)
 		record.Preparing = true
 		if c.log != nil {
-			c.log(ctx, record)
+			c.log.Log(ctx, record)
 		}
 		return st, err
 	}
@@ -97,7 +106,7 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows
 		s.record.Ts = time.Since(s.record.At)
 		s.record.Err = err
 		if s.log != nil {
-			s.log(ctx, s.record)
+			s.log.Log(ctx, s.record)
 		}
 	}()
 
@@ -119,7 +128,7 @@ func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (resul
 		s.record.Ts = time.Since(s.record.At)
 		s.record.Err = err
 		if s.log != nil {
-			s.log(ctx, s.record)
+			s.log.Log(ctx, s.record)
 		}
 	}()
 	if v, ok := s.Stmt.(driver.StmtExecContext); ok {
