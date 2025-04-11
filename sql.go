@@ -8,13 +8,13 @@ import (
 )
 
 type Record struct {
-	Query     string
-	Args      []driver.NamedValue
-	Effect    bool // whether the query has side effects
-	Preparing bool
-	Err       error
-	At        time.Time
-	Ts        time.Duration
+	Query     string              // sql query
+	Args      []driver.NamedValue // arguments
+	Effect    bool                // whether the query has side effects
+	Preparing bool                // is the query preparing a statement
+	Err       error               // error from executing the query
+	At        time.Time           // start time
+	Ts        time.Duration       // duration of the query
 }
 type Logger func(ctx context.Context, log Record)
 
