@@ -1,4 +1,4 @@
-package logdb
+package sqllog
 
 import (
 	"context"
@@ -63,7 +63,14 @@ func (c *connection) PrepareContext(ctx context.Context, query string) (driver.S
 		At:    time.Now(),
 	}
 
-	st, err := c.Conn.(driver.ConnPrepareContext).PrepareContext(ctx, query)
+	var st driver.Stmt
+	var err error
+	if v, ok := c.Conn.(driver.ConnPrepareContext); ok {
+		st, err = v.PrepareContext(ctx, query)
+	} else {
+		st, err = c.Conn.Prepare(query)
+	}
+
 	if err != nil {
 		record.Err = err
 		record.Ts = time.Since(record.At)
@@ -93,7 +100,15 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows
 			s.log(ctx, s.record)
 		}
 	}()
-	return s.Stmt.(driver.StmtQueryContext).QueryContext(ctx, args)
+
+	if v, ok := s.Stmt.(driver.StmtQueryContext); ok {
+		return v.QueryContext(ctx, args)
+	}
+	args2 := make([]driver.Value, len(args))
+	for i, nv := range args {
+		args2[i] = nv.Value
+	}
+	return s.Stmt.Query(args2)
 }
 
 // ExecContext implements driver.StmtExecContext
@@ -107,5 +122,12 @@ func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (resul
 			s.log(ctx, s.record)
 		}
 	}()
-	return s.Stmt.(driver.StmtExecContext).ExecContext(ctx, args)
+	if v, ok := s.Stmt.(driver.StmtExecContext); ok {
+		return v.ExecContext(ctx, args)
+	}
+	args2 := make([]driver.Value, len(args))
+	for i, nv := range args {
+		args2[i] = nv.Value
+	}
+	return s.Stmt.Exec(args2)
 }

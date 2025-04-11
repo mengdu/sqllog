@@ -1,3 +1,3 @@
-module github.com/mengdu/logdb
+module github.com/mengdu/sqllog
 
 go 1.23.0
